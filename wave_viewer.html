@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>波形ビューアー | 物理基礎</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Zen+Kaku+Gothic+New:wght@400;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --deep:   #06101e;
+  --panel:  #0d1f35;
+  --panel2: #0a1a2e;
+  --border: #1e3a5f;
+  --text:   #cce4ff;
+  --muted:  #5a8ab0;
+  --dim:    #2a4060;
+  --wT:     #00c9ff;
+  --wL:     #ff6b35;
+  --safe:   #00e676;
+  --warn:   #ff9800;
+  --danger: #ff4444;
+  --accent: #00b4d8;
+  --eq-bg:  #04192e;
+  --lock:   #0a1525;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+  background:var(--deep); color:var(--text);
+  font-family:'Zen Kaku Gothic New',sans-serif;
+  height:100dvh; display:flex; flex-direction:column; overflow:hidden;
+}
+
+/* ── Header ── */
+header{
+  background:linear-gradient(90deg,var(--deep),#0d2040,var(--deep));
+  border-bottom:1px solid var(--border);
+  padding:8px 20px; display:flex; align-items:center; gap:12px; flex-shrink:0;
+}
+.h-icon{font-size:1.3rem;animation:sway 4s ease-in-out infinite;}
+@keyframes sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+header h1{
+  font-family:'Space Grotesk',sans-serif; font-size:1rem; font-weight:700;
+  background:linear-gradient(90deg,var(--wT),#90caf9);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.h-sub{font-size:.65rem;color:var(--muted);}
+
+/* ── Step nav bar ── */
+.step-bar{
+  background:var(--panel); border-bottom:1px solid var(--border);
+  padding:8px 16px; display:flex; align-items:center; gap:8px; flex-shrink:0;
+  overflow-x:auto;
+}
+.step-btn{
+  flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:5px 10px; border-radius:8px; border:1px solid var(--border);
+  background:transparent; color:var(--muted); cursor:pointer;
+  font-family:'Zen Kaku Gothic New',sans-serif; font-size:.68rem;
+  transition:all .15s; min-width:60px;
+}
+.step-btn:hover{border-color:var(--accent); color:var(--text);}
+.step-btn.active{border-color:var(--wT); color:var(--wT); background:rgba(0,201,255,.08);}
+.step-btn.cleared{border-color:var(--safe); color:var(--safe); background:rgba(0,230,118,.06);}
+.step-btn.active.cleared{border-color:var(--safe); background:rgba(0,230,118,.12);}
+.step-num{
+  font-family:'Space Grotesk',sans-serif; font-size:.75rem; font-weight:700;
+}
+.step-check{font-size:.8rem;}
+
+/* ── Progress ── */
+.progress-wrap{
+  height:3px; background:var(--dim); flex-shrink:0; position:relative;
+}
+.progress-bar{
+  height:100%; background:linear-gradient(90deg,var(--wT),var(--accent));
+  transition:width .4s ease;
+}
+
+/* ── Main layout ── */
+.app{
+  display:grid; grid-template-columns:200px 1fr 260px;
+  flex:1; min-height:0;
+}
+
+/* ── Panels ── */
+.panel{
+  background:var(--panel); padding:14px 12px;
+  display:flex; flex-direction:column; gap:12px;
+  overflow-y:auto;
+}
+.panel-left {border-right:1px solid var(--border);}
+.panel-right{border-left:1px solid var(--border); background:var(--panel2);}
+
+.ptitle{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+
+/* Step info box */
+.step-info{
+  background:var(--eq-bg); border:1px solid var(--border);
+  border-left:3px solid var(--wT); border-radius:8px; padding:10px 12px;
+  display:flex; flex-direction:column; gap:6px;
+}
+.step-info-title{
+  font-size:.72rem; font-weight:700; color:var(--wT); letter-spacing:.04em;
+}
+.step-info-body{font-size:.72rem; line-height:1.7; color:var(--muted);}
+.step-info-body b{color:var(--text);}
+
+/* Slider */
+.slider-wrap{display:flex;flex-direction:column;gap:10px;}
+.slider-row{display:flex;flex-direction:column;gap:4px;}
+.slider-label{display:flex;justify-content:space-between;align-items:baseline;font-size:.68rem;color:var(--muted);}
+.slider-label .sym{font-family:'Space Grotesk',sans-serif;font-size:.82rem;font-weight:600;color:var(--text);}
+.slider-label .val{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--accent);}
+.slider-label .unit{font-size:.6rem;color:var(--dim);margin-left:1px;}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
+input[type=range].disabled-range{opacity:.2;pointer-events:none;filter:grayscale(1);}
+.lock-msg{
+  font-size:.62rem;color:var(--dim);text-align:center;
+  padding:4px 8px; background:var(--lock); border-radius:5px;
+  border:1px solid var(--border); letter-spacing:.05em;
+}
+
+/* play ctrl */
+.play-row{display:flex;gap:6px;}
+.btn-play{
+  flex:1;padding:8px 0;border-radius:7px;border:none;cursor:pointer;
+  font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:.8rem;
+  background:linear-gradient(135deg,var(--wT),var(--accent));color:#fff;
+  box-shadow:0 0 14px rgba(0,180,216,.25);transition:all .15s;
+}
+.btn-play.paused{background:linear-gradient(135deg,#1a4a7a,#0d2040);border:1px solid var(--accent);color:var(--accent);}
+.btn-small{
+  padding:8px 12px;border-radius:7px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);cursor:pointer;font-size:.78rem;transition:all .15s;
+}
+.btn-small:hover{border-color:#ff6b6b;color:#ff6b6b;}
+
+/* ── Center viewer ── */
+.viewer{
+  display:flex;flex-direction:column;background:var(--deep);position:relative;overflow:hidden;
+}
+.canvas-block{
+  flex:1;position:relative;display:flex;flex-direction:column;
+  border-bottom:1px solid var(--border);min-height:0;
+}
+.canvas-block:last-child{border-bottom:none;}
+.canvas-header{
+  padding:6px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;
+}
+.wave-badge{
+  font-family:'Space Grotesk',sans-serif;font-size:.65rem;font-weight:700;
+  letter-spacing:.1em;padding:2px 9px;border-radius:10px;text-transform:uppercase;
+}
+.badge-t{background:rgba(0,201,255,.15);color:var(--wT);border:1px solid rgba(0,201,255,.3);}
+.badge-l{background:rgba(255,107,53,.15);color:var(--wL);border:1px solid rgba(255,107,53,.3);}
+.canvas-title{font-size:.72rem;color:var(--muted);}
+canvas.wc{flex:1;width:100%;display:block;}
+
+/* ── Right: Mission panel ── */
+.mission-panel{display:flex;flex-direction:column;gap:12px;}
+
+/* v = fλ display */
+.eq-box{
+  background:var(--eq-bg);border:1px solid var(--border);
+  border-left:3px solid var(--accent);border-radius:8px;padding:12px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.eq-formula{
+  font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;
+  text-align:center;letter-spacing:.04em;
+}
+.eq-v{color:var(--safe);}.eq-f{color:var(--wT);}.eq-lam{color:var(--wL);}.eq-op{color:var(--dim);}
+.eq-vals{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:2px;}
+.eq-card{
+  background:#041525;border:1px solid var(--border);border-radius:5px;
+  padding:6px 4px;text-align:center;
+}
+.eq-sym{font-family:'Space Grotesk',sans-serif;font-size:.72rem;font-weight:600;}
+.eq-num{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:600;}
+.eq-unit{font-size:.55rem;color:var(--dim);}
+
+/* mission */
+.mission-box{
+  background:var(--eq-bg);border:1px solid var(--border);border-radius:8px;
+  padding:12px;display:flex;flex-direction:column;gap:10px;
+}
+.mission-label{
+  font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--warn);font-weight:700;
+}
+.mission-q{font-size:.8rem;line-height:1.7;color:var(--text);}
+.choices{display:flex;flex-direction:column;gap:6px;}
+.choice-btn{
+  padding:8px 12px;border-radius:7px;border:1px solid var(--border);
+  background:#041525;color:var(--muted);cursor:pointer;text-align:left;
+  font-family:'Zen Kaku Gothic New',sans-serif;font-size:.75rem;line-height:1.5;
+  transition:all .15s;
+}
+.choice-btn:hover{border-color:var(--accent);color:var(--text);}
+.choice-btn.correct{border-color:var(--safe);background:rgba(0,230,118,.1);color:var(--safe);}
+.choice-btn.wrong  {border-color:var(--danger);background:rgba(255,68,68,.08);color:var(--danger);}
+.choice-btn:disabled{cursor:default;}
+
+.result-msg{
+  font-size:.75rem;line-height:1.7;padding:8px 10px;border-radius:6px;
+  display:none;
+}
+.result-msg.correct{background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);color:var(--safe);}
+.result-msg.wrong  {background:rgba(255,68,68,.06);border:1px solid rgba(255,68,68,.2);color:#ff9999;}
+.result-msg.show{display:block;}
+
+/* cleared badge */
+.cleared-badge{
+  display:none;align-items:center;gap:6px;padding:7px 10px;
+  border-radius:7px;background:rgba(0,230,118,.08);
+  border:1px solid rgba(0,230,118,.3);font-size:.75rem;color:var(--safe);
+}
+.cleared-badge.show{display:flex;}
+
+/* step nav buttons */
+.nav-row{display:flex;gap:8px;margin-top:auto;}
+.btn-nav{
+  flex:1;padding:9px 0;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);cursor:pointer;
+  font-family:'Zen Kaku Gothic New',sans-serif;font-size:.8rem;font-weight:700;
+  transition:all .15s;
+}
+.btn-nav:hover{border-color:var(--accent);color:var(--accent);}
+.btn-nav.next{border-color:var(--wT);color:var(--wT);}
+.btn-nav.next:hover{background:rgba(0,201,255,.1);}
+.btn-nav:disabled{opacity:.3;cursor:default;}
+
+/* hint overlay */
+.obs-hint{
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  background:rgba(6,16,30,.85);border:1px solid var(--border);border-radius:16px;
+  padding:4px 14px;font-size:.65rem;color:var(--muted);pointer-events:none;white-space:nowrap;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-icon">〜</div>
+  <div>
+    <h1>Wave Viewer　波形ビューアー</h1>
+    <div class="h-sub">物理基礎 · 波動</div>
+  </div>
+</header>
+
+<!-- Step navigation bar -->
+<div class="step-bar" id="stepBar"></div>
+<div class="progress-wrap">
+  <div class="progress-bar" id="progressBar" style="width:0%"></div>
+</div>
+
+<div class="app">
+
+  <!-- Left: controls -->
+  <div class="panel panel-left" id="leftPanel">
+    <div class="ptitle">学習ステップ</div>
+    <div class="step-info" id="stepInfo">
+      <div class="step-info-title" id="stepInfoTitle"></div>
+      <div class="step-info-body"  id="stepInfoBody"></div>
+    </div>
+
+    <div class="ptitle" id="paramTitle" style="display:none">パラメータ</div>
+    <div class="slider-wrap" id="sliderWrap" style="display:none">
+      <!-- f -->
+      <div class="slider-row" id="rowF">
+        <div class="slider-label">
+          <span class="sym">f &thinsp;<span style="font-size:.6rem;color:var(--muted)">振動数</span></span>
+          <span><span class="val" id="fVal">2.0</span><span class="unit">Hz</span></span>
+        </div>
+        <input type="range" id="fSlider" min="0.5" max="4.0" step="0.1" value="2.0" oninput="onParam()">
+      </div>
+      <!-- λ -->
+      <div class="slider-row" id="rowLam">
+        <div class="slider-label">
+          <span class="sym">λ &thinsp;<span style="font-size:.6rem;color:var(--muted)">波長</span></span>
+          <span><span class="val" id="lamVal">3.0</span><span class="unit">m</span></span>
+        </div>
+        <input type="range" id="lamSlider" min="1.0" max="6.0" step="0.1" value="3.0" oninput="onParam()">
+      </div>
+      <!-- A -->
+      <div class="slider-row" id="rowA">
+        <div class="slider-label">
+          <span class="sym">A &thinsp;<span style="font-size:.6rem;color:var(--muted)">振幅</span></span>
+          <span><span class="val" id="aVal">1.0</span><span class="unit">m</span></span>
+        </div>
+        <input type="range" id="aSlider" min="0.2" max="2.0" step="0.1" value="1.0" oninput="onParam()">
+      </div>
+      <div class="lock-msg" id="lockMsg" style="display:none">🔒 このステップでは固定</div>
+    </div>
+
+    <div class="ptitle">再生</div>
+    <div class="play-row">
+      <button class="btn-play" id="btnPlay" onclick="togglePlay()">⏸ 一時停止</button>
+      <button class="btn-small" onclick="resetAnim()">↺</button>
+    </div>
+    <div class="slider-row">
+      <div class="slider-label">
+        <span style="color:var(--muted);font-size:.68rem;">再生速度</span>
+        <span class="val" id="speedVal">0.30</span><span style="font-size:.6rem;color:var(--dim)">×</span>
+      </div>
+      <input type="range" id="speedSlider" min="0.1" max="0.5" step="0.05" value="0.3"
+             oninput="document.getElementById('speedVal').textContent=parseFloat(this.value).toFixed(2)">
+    </div>
+  </div>
+
+  <!-- Center: canvas -->
+  <div class="viewer" id="viewer">
+    <div class="canvas-block" id="blockT">
+      <div class="canvas-header">
+        <span class="wave-badge badge-t">Transverse</span>
+        <span class="canvas-title" id="titleT">横波</span>
+      </div>
+      <canvas class="wc" id="cT"></canvas>
+    </div>
+    <div class="canvas-block" id="blockL" style="display:none">
+      <div class="canvas-header">
+        <span class="wave-badge badge-l">Longitudinal</span>
+        <span class="canvas-title" id="titleL">縦波</span>
+      </div>
+      <canvas class="wc" id="cL"></canvas>
+    </div>
+    <div class="obs-hint" id="obsHint" style="display:none"></div>
+  </div>
+
+  <!-- Right: mission -->
+  <div class="panel panel-right">
+    <div class="mission-panel">
+
+      <!-- v=fλ (shown from step 5) -->
+      <div class="eq-box" id="eqBox" style="display:none">
+        <div class="eq-formula">
+          <span class="eq-v">v</span><span class="eq-op"> = </span>
+          <span class="eq-f">f</span><span class="eq-op"> × </span>
+          <span class="eq-lam">λ</span>
+        </div>
+        <div class="eq-vals">
+          <div class="eq-card"><div class="eq-sym eq-f">f</div><div class="eq-num eq-f" id="eqF">2.0</div><div class="eq-unit">Hz</div></div>
+          <div class="eq-card"><div class="eq-sym eq-lam">λ</div><div class="eq-num eq-lam" id="eqLam">3.0</div><div class="eq-unit">m</div></div>
+          <div class="eq-card"><div class="eq-sym eq-v">v</div><div class="eq-num eq-v" id="eqV">6.0</div><div class="eq-unit">m/s</div></div>
+        </div>
+      </div>
+
+      <!-- Mission -->
+      <div class="mission-box" id="missionBox">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-q" id="missionQ"></div>
+        <div class="choices" id="choices"></div>
+        <div class="result-msg" id="resultMsg"></div>
+      </div>
+
+      <!-- Cleared badge -->
+      <div class="cleared-badge" id="clearedBadge">
+        ✅ このステップをクリアしました！
+      </div>
+
+      <!-- Step nav -->
+      <div class="nav-row">
+        <button class="btn-nav" id="btnPrev" onclick="goStep(currentStep-1)">← 前へ</button>
+        <button class="btn-nav next" id="btnNext" onclick="goStep(currentStep+1)">次へ →</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// Step definitions
+// ============================================================
+const STEPS = [
+  {
+    id: 1,
+    title: 'Step 1｜波とは何か',
+    shortTitle: '波とは',
+    color: 'var(--wT)',
+    showT: true, showL: false,
+    titleT: '横波 — 粒子の動きを観察しよう',
+    showEnvelope: false,
+    showParticles: true,
+    showVector: false,
+    highlightParticle: true,   // 中央の粒子を強調
+    lockF: true, lockLam: true, lockA: true,
+    hint: '粒子は上下に振動している — 右には進まない',
+    info: {
+      title: '波の本質を観察しよう',
+      body: '波とは「振動が次々と伝わる現象」です。<b>粒子そのもの</b>は遠くまで移動しません。\n\nアニメーションを観察して、ミッションに答えましょう。',
+    },
+    mission: {
+      q: '波のアニメーションをよく見てください。粒子（白い点）はどのように動いていますか？',
+      choices: [
+        { text: '① 波と一緒に右方向へ移動している', correct: false,
+          feedback: '違います。粒子は右には移動していません。もう一度よく観察してみましょう。' },
+        { text: '② 同じ場所で上下に振動している', correct: true,
+          feedback: '正解です！波が右に伝わっていても、粒子は元の位置を中心に上下に振動するだけです。「波が進む ≠ 物質が移動する」これが波の本質です。' },
+        { text: '③ ランダムにあちこち動いている', correct: false,
+          feedback: '違います。粒子の動きにはちゃんと規則があります。' },
+      ],
+    },
+  },
+  {
+    id: 2,
+    title: 'Step 2｜振幅 A',
+    shortTitle: '振幅 A',
+    showT: true, showL: false,
+    titleT: '横波 — 振幅 A を操作しよう',
+    showEnvelope: true,
+    showParticles: true,
+    showVector: false,
+    showAmplitudeLines: true,
+    lockF: true, lockLam: true, lockA: false,
+    hint: 'A スライダーを動かして波の大きさを変えよう',
+    info: {
+      title: '振幅 A とは？',
+      body: '<b>振幅（A）</b>は、波の「大きさ」を表します。\n\n中心（0）から山の頂点（または谷の底）までの距離です。\n\nAスライダーを操作して変化を観察しましょう。',
+    },
+    mission: {
+      q: '振幅 A を大きくすると、波はどう変化しますか？',
+      choices: [
+        { text: '① 波が速く進むようになる', correct: false,
+          feedback: '違います。振幅は波の速さとは関係がありません。' },
+        { text: '② 山と谷の高さが大きくなる', correct: true,
+          feedback: '正解です！振幅は波の「高さ（大きさ）」です。波の速さや波長は変わりません。音では「音の大きさ」、光では「明るさ」に対応します。' },
+        { text: '③ 波の間隔（波長）が広くなる', correct: false,
+          feedback: '違います。振幅を変えても波長は変わりません。' },
+      ],
+    },
+  },
+  {
+    id: 3,
+    title: 'Step 3｜波長 λ',
+    shortTitle: '波長 λ',
+    showT: true, showL: false,
+    titleT: '横波 — 波長 λ を操作しよう',
+    showEnvelope: true,
+    showParticles: true,
+    showVector: false,
+    showLambdaArrow: true,
+    lockF: true, lockLam: false, lockA: true,
+    hint: 'λ スライダーを動かして波の間隔を変えよう',
+    info: {
+      title: '波長 λ とは？',
+      body: '<b>波長（λ：ラムダ）</b>は、隣り合う山と山（または谷と谷）の距離です。\n\n図の中のオレンジの矢印で示されています。\n\nλスライダーを操作してみましょう。',
+    },
+    mission: {
+      q: '波長（λ）とは何の距離ですか？',
+      choices: [
+        { text: '① 山の高さ（中心から頂点まで）', correct: false,
+          feedback: '違います。それは「振幅 A」の説明です。' },
+        { text: '② 隣り合う山と山（または谷と谷）の間の距離', correct: true,
+          feedback: '正解です！波長は「同じ状態が繰り返す距離」です。λ（ラムダ）という記号を使います。' },
+        { text: '③ 波が1秒間に進む距離', correct: false,
+          feedback: '違います。それは「波の速さ v」の説明です。' },
+      ],
+    },
+  },
+  {
+    id: 4,
+    title: 'Step 4｜周期 T と振動数 f',
+    shortTitle: '周期・振動数',
+    showT: true, showL: false,
+    titleT: '横波 — 振動数 f を操作しよう',
+    showEnvelope: true,
+    showParticles: true,
+    showVector: false,
+    showPeriodCounter: true,
+    lockF: false, lockLam: true, lockA: true,
+    hint: 'f スライダーで振動の速さを変えよう',
+    info: {
+      title: '周期 T と振動数 f',
+      body: '<b>振動数（f）</b>：1秒間に振動する回数 [Hz]\n<b>周期（T）</b>：1回振動するのにかかる時間 [s]\n\n<b>T = 1/f</b> の関係があります。\n\nfスライダーを操作してTの変化を確認しましょう。',
+    },
+    mission: {
+      q: '振動数 f を2倍にすると、周期 T はどうなりますか？',
+      choices: [
+        { text: '① 2倍になる', correct: false,
+          feedback: '違います。T = 1/f なので、fが2倍になるとTはどうなるか考えてみましょう。' },
+        { text: '② 変わらない', correct: false,
+          feedback: '違います。f と T は T = 1/f という関係で結びついています。' },
+        { text: '③ 1/2（半分）になる', correct: true,
+          feedback: '正解です！T = 1/f なので、f が2倍になると T は 1/2 になります。「振動が速くなる（f大）＝1回の振動の時間が短くなる（T小）」と覚えましょう。' },
+      ],
+    },
+  },
+  {
+    id: 5,
+    title: 'Step 5｜波の速さ v = fλ',
+    shortTitle: 'v = fλ',
+    showT: true, showL: false,
+    titleT: '横波 — f と λ を操作して v を確かめよう',
+    showEnvelope: true,
+    showParticles: true,
+    showVector: false,
+    showLambdaArrow: true,
+    showEq: true,
+    lockF: false, lockLam: false, lockA: true,
+    hint: 'f と λ を変えると v がどう変わるか確認しよう',
+    info: {
+      title: '波の速さの公式',
+      body: '<b>v = f × λ</b>\n\n波の速さは振動数と波長の積です。右パネルの計算をリアルタイムで確認しながら、f と λ を操作してみましょう。',
+    },
+    mission: {
+      q: 'f = 3 Hz、λ = 4 m のとき、波の速さ v はいくつですか？',
+      choices: [
+        { text: '① v = 7 m/s　（3 + 4）', correct: false,
+          feedback: '違います。v = f × λ ですから、掛け算です。足し算ではありません。' },
+        { text: '② v = 12 m/s　（3 × 4）', correct: true,
+          feedback: '正解です！v = f × λ = 3 × 4 = 12 m/s です。スライダーで f=3、λ=4 に合わせて確認してみましょう。' },
+        { text: '③ v = 1.3 m/s　（3 ÷ 4 × 1.3…）', correct: false,
+          feedback: '違います。v = f × λ ですから、掛け算です。' },
+      ],
+    },
+  },
+  {
+    id: 6,
+    title: 'Step 6｜横波と縦波',
+    shortTitle: '横波・縦波',
+    showT: true, showL: true,
+    titleT: '横波 — 媒質の振動方向に注目',
+    titleL: '縦波 — 媒質の振動方向に注目',
+    showEnvelope: true,
+    showParticles: true,
+    showVector: true,
+    showDensityLabel: true,
+    lockF: false, lockLam: false, lockA: false,
+    hint: '上下と左右 — 振動方向の違いを観察しよう',
+    info: {
+      title: '横波と縦波の違い',
+      body: '<b>横波</b>：媒質の振動が進行方向に<b>垂直</b>\n例：光・地震のS波\n\n<b>縦波</b>：媒質の振動が進行方向に<b>平行</b>\n例：音・地震のP波\n\n縦波は「疎」「密」の繰り返しで表される。',
+    },
+    mission: {
+      q: '縦波（音波など）の媒質の振動方向はどれですか？',
+      choices: [
+        { text: '① 波の進行方向に垂直（上下・左右）', correct: false,
+          feedback: '違います。それは横波の説明です。横波の例：光・地震のS波。' },
+        { text: '② 波の進行方向に平行（同じ方向・逆方向）', correct: true,
+          feedback: '正解です！縦波は「進行方向と同じ方向に振動」します。粒子が密集する部分を「密」、まばらな部分を「疎」といいます。' },
+        { text: '③ 波の進行方向に斜め45°', correct: false,
+          feedback: '違います。縦波は進行方向と平行に振動します。' },
+      ],
+    },
+  },
+  {
+    id: 7,
+    title: 'Step 7｜総合問題',
+    shortTitle: '総合問題',
+    showT: true, showL: true,
+    titleT: '横波',
+    titleL: '縦波',
+    showEnvelope: true,
+    showParticles: true,
+    showVector: false,
+    showEq: true,
+    showLambdaArrow: true,
+    lockF: false, lockLam: false, lockA: false,
+    hint: '全パラメータを自由に操作できます',
+    info: {
+      title: '自由に探究しよう',
+      body: 'すべてのパラメータを操作できます。\n\n<b>確認ポイント：</b>\n・f を大きくすると λ が同じなら v はどうなる？\n・同じ v を保つには f と λ をどう変える？',
+    },
+    mission: {
+      q: '波の速さ v = 8 m/s で、波長 λ = 2 m のとき、振動数 f はいくつですか？（v = fλ より f = v ÷ λ）',
+      choices: [
+        { text: '① f = 16 Hz　（8 × 2）', correct: false,
+          feedback: '違います。f = v ÷ λ = 8 ÷ 2 です。掛け算ではありません。' },
+        { text: '② f = 4 Hz　（8 ÷ 2）', correct: true,
+          feedback: '正解！f = v ÷ λ = 8 ÷ 2 = 4 Hz です。v = fλ を変形すると f = v/λ になります。スライダーで確認してみましょう。' },
+        { text: '③ f = 6 Hz　（8 - 2）', correct: false,
+          feedback: '違います。f = v ÷ λ ですから、割り算です。' },
+      ],
+    },
+  },
+];
+
+// ============================================================
+// State
+// ============================================================
+let currentStep = 0;
+let playing = true;
+let t = 0;
+let lastTime = null;
+let rafId = null;
+let cleared = new Array(STEPS.length).fill(false);
+
+// ============================================================
+// Canvas
+// ============================================================
+const cT = document.getElementById('cT');
+const cL = document.getElementById('cL');
+const ctxT = cT.getContext('2d');
+const ctxL = cL.getContext('2d');
+
+function resizeCanvases() {
+  [cT, cL].forEach(c => {
+    const b = c.parentElement;
+    if (b.style.display === 'none') return;
+    const bh = b.clientHeight;
+    const bw = b.clientWidth;
+    if (bw > 0) c.width  = bw;
+    if (bh > 32) c.height = bh - 32;
+  });
+  draw();  // サイズ変更後に即座に再描画
+}
+window.addEventListener('resize', () => { resizeCanvases(); });
+
+// ============================================================
+// Params
+// ============================================================
+function getP() {
+  const f   = parseFloat(document.getElementById('fSlider').value);
+  const lam = parseFloat(document.getElementById('lamSlider').value);
+  const A   = parseFloat(document.getElementById('aSlider').value);
+  return { f, lam, A, v: f*lam, T: 1/f, k: 2*Math.PI/lam, om: 2*Math.PI*f };
+}
+
+function onParam() {
+  const { f, lam, v, T, A } = getP();
+  document.getElementById('fVal').textContent   = f.toFixed(1);
+  document.getElementById('lamVal').textContent = lam.toFixed(1);
+  document.getElementById('aVal').textContent   = A.toFixed(1);
+  document.getElementById('eqF').textContent    = f.toFixed(1);
+  document.getElementById('eqLam').textContent  = lam.toFixed(1);
+  document.getElementById('eqV').textContent    = v.toFixed(1);
+}
+
+// ============================================================
+// Step navigation
+// ============================================================
+function buildStepBar() {
+  const bar = document.getElementById('stepBar');
+  bar.innerHTML = '';
+  STEPS.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.className = 'step-btn' + (i===currentStep?' active':'') + (cleared[i]?' cleared':'');
+    b.innerHTML = `<span class="step-num">${s.id}</span><span>${s.shortTitle}</span><span class="step-check">${cleared[i]?'✓':''}</span>`;
+    b.onclick = () => goStep(i);
+    bar.appendChild(b);
+  });
+}
+
+function goStep(idx) {
+  if (idx < 0 || idx >= STEPS.length) return;
+  currentStep = idx;
+  const s = STEPS[idx];
+
+  // progress
+  document.getElementById('progressBar').style.width = ((idx+1)/STEPS.length*100)+'%';
+
+  // step bar
+  buildStepBar();
+
+  // step info
+  document.getElementById('stepInfoTitle').textContent = s.info.title;
+  document.getElementById('stepInfoBody').innerHTML = s.info.body.replace(/\n/g,'<br>');
+
+  // show/hide sliders
+  const hasSlider = !s.lockF || !s.lockLam || !s.lockA;
+  document.getElementById('paramTitle').style.display = hasSlider ? '' : 'none';
+  document.getElementById('sliderWrap').style.display = hasSlider ? '' : 'none';
+
+  // lock/unlock
+  lockSlider('fSlider',   s.lockF);
+  lockSlider('lamSlider', s.lockLam);
+  lockSlider('aSlider',   s.lockA);
+  const anyLocked = s.lockF || s.lockLam || s.lockA;
+  const lockMsg = document.getElementById('lockMsg');
+  lockMsg.style.display = anyLocked ? '' : 'none';
+
+  // canvas visibility
+  document.getElementById('blockT').style.display = s.showT ? 'flex' : 'none';
+  document.getElementById('blockL').style.display = s.showL ? 'flex' : 'none';
+  document.getElementById('titleT').textContent   = s.titleT || '横波';
+  document.getElementById('titleL').textContent   = s.titleL || '縦波';
+
+  // equation box
+  document.getElementById('eqBox').style.display = s.showEq ? '' : 'none';
+
+  // hint
+  const hint = document.getElementById('obsHint');
+  if (s.hint) { hint.textContent = s.hint; hint.style.display = ''; }
+  else hint.style.display = 'none';
+
+  // mission
+  renderMission(idx);
+
+  // nav buttons
+  document.getElementById('btnPrev').disabled = idx === 0;
+  document.getElementById('btnNext').disabled = idx === STEPS.length - 1;
+
+  setTimeout(() => { resizeCanvases(); }, 50);
+}
+
+function lockSlider(id, lock) {
+  const el = document.getElementById(id);
+  if (lock) el.classList.add('disabled-range');
+  else      el.classList.remove('disabled-range');
+}
+
+// ============================================================
+// Mission
+// ============================================================
+function renderMission(idx) {
+  const s = STEPS[idx];
+  document.getElementById('missionQ').textContent = s.mission.q;
+  const cont = document.getElementById('choices');
+  cont.innerHTML = '';
+  s.mission.choices.forEach((c, ci) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = c.text;
+    btn.onclick = () => onChoice(idx, ci);
+    cont.appendChild(btn);
+  });
+  const msg = document.getElementById('resultMsg');
+  msg.className = 'result-msg';
+  msg.textContent = '';
+
+  const badge = document.getElementById('clearedBadge');
+  badge.className = 'cleared-badge' + (cleared[idx] ? ' show' : '');
+}
+
+function onChoice(stepIdx, choiceIdx) {
+  if (stepIdx !== currentStep) return;
+  const s   = STEPS[stepIdx];
+  const c   = s.mission.choices[choiceIdx];
+  const btns = document.getElementById('choices').querySelectorAll('.choice-btn');
+
+  btns.forEach((b, i) => {
+    b.disabled = true;
+    if (s.mission.choices[i].correct) b.classList.add('correct');
+    else if (i === choiceIdx && !c.correct) b.classList.add('wrong');
+  });
+
+  const msg = document.getElementById('resultMsg');
+  msg.textContent = c.feedback;
+  msg.className   = 'result-msg show ' + (c.correct ? 'correct' : 'wrong');
+
+  if (c.correct && !cleared[stepIdx]) {
+    cleared[stepIdx] = true;
+    document.getElementById('clearedBadge').className = 'cleared-badge show';
+    buildStepBar();
+  }
+}
+
+// ============================================================
+// Drawing — Transverse
+// ============================================================
+const NP = 26;
+
+function drawT(ctx, w, h, p) {
+  const s = STEPS[currentStep];
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#06101e';
+  ctx.fillRect(0, 0, w, h);
+
+  const mg = 44, dw = w - mg*2, cy = h/2;
+  const DOMAIN = 12.0;          // 表示する物理領域 [m]（固定）
+  const sx = dw / DOMAIN;       // pixels per meter（λに依存しない固定スケール）
+  const MAX_A = 2.0;
+  const sy = (h * 0.35) / MAX_A;
+
+  // center line
+  ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 1; ctx.setLineDash([4,6]);
+  ctx.beginPath(); ctx.moveTo(mg, cy); ctx.lineTo(mg+dw, cy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // amplitude lines
+  if (s.showAmplitudeLines) {
+    [+1,-1].forEach(sign => {
+      ctx.strokeStyle = '#1a3050'; ctx.lineWidth = 0.5; ctx.setLineDash([2,8]);
+      ctx.beginPath();
+      ctx.moveTo(mg, cy - sign*p.A*sy);
+      ctx.lineTo(mg+dw, cy - sign*p.A*sy);
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(90,138,176,0.6)';
+      ctx.font = '10px Space Grotesk'; ctx.textAlign = 'right';
+      ctx.fillText(sign>0?'+A':'-A', mg-4, cy - sign*p.A*sy + 4);
+    });
+  }
+
+  // envelope
+  if (s.showEnvelope) {
+    ctx.beginPath();
+    for (let pxp=0; pxp<=dw; pxp++) {
+      const xm = pxp / sx;   // 物理座標 [m]
+      const y  = p.A * Math.sin(p.k * xm - p.om * t);
+      pxp===0 ? ctx.moveTo(mg+pxp, cy-y*sy) : ctx.lineTo(mg+pxp, cy-y*sy);
+    }
+    const gr = ctx.createLinearGradient(mg,0,mg+dw,0);
+    gr.addColorStop(0,'rgba(0,201,255,0.9)');
+    gr.addColorStop(1,'rgba(0,201,255,0.2)');
+    ctx.strokeStyle = gr; ctx.lineWidth = 2.2; ctx.stroke();
+    // glow
+    ctx.beginPath();
+    for (let pxp=0; pxp<=dw; pxp++) {
+      const xm = pxp / sx;
+      const y  = p.A * Math.sin(p.k * xm - p.om * t);
+      pxp===0 ? ctx.moveTo(mg+pxp, cy-y*sy) : ctx.lineTo(mg+pxp, cy-y*sy);
+    }
+    ctx.strokeStyle = 'rgba(0,201,255,0.08)'; ctx.lineWidth = 14; ctx.stroke();
+  }
+
+  // particles
+  if (s.showParticles) {
+    for (let n=0; n<=NP; n++) {
+      const xm   = (n/NP) * dw;
+      const xphys = xm / sx;   // 物理座標 [m]
+      const disp = p.A * Math.sin(p.k * xphys - p.om * t);
+      const ppx  = mg + xm, ppy = cy - disp*sy;
+      const intensity = Math.abs(disp / p.A);
+      const isCenter  = (s.highlightParticle && n === Math.floor(NP/2));
+
+      if (s.showVector && Math.abs(disp) > 0.05) {
+        ctx.strokeStyle = 'rgba(0,201,255,0.4)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(ppx, cy); ctx.lineTo(ppx, ppy); ctx.stroke();
+      }
+      const r = isCenter ? 8 : 4 + intensity*2;
+      ctx.beginPath(); ctx.arc(ppx, ppy, r, 0, Math.PI*2);
+      ctx.fillStyle = isCenter ? '#00c9ff' : `rgba(232,244,255,${0.45+intensity*0.55})`;
+      ctx.fill();
+      if (isCenter) {
+        ctx.beginPath(); ctx.arc(ppx, ppy, r+6, 0, Math.PI*2);
+        const g2 = ctx.createRadialGradient(ppx,ppy,r,ppx,ppy,r+6);
+        g2.addColorStop(0,'rgba(0,201,255,0.5)'); g2.addColorStop(1,'rgba(0,201,255,0)');
+        ctx.fillStyle = g2; ctx.fill();
+      }
+    }
+    // Step1: highlight particle annotation
+    if (s.highlightParticle) {
+      const mxp  = mg + dw/2;
+      const xphys = (dw/2) / sx;
+      const disp = p.A * Math.sin(p.k * xphys - p.om * t);
+      ctx.strokeStyle = 'rgba(0,201,255,0.5)'; ctx.lineWidth = 1; ctx.setLineDash([3,4]);
+      ctx.beginPath(); ctx.moveTo(mxp, cy-p.A*sy-8); ctx.lineTo(mxp, cy+p.A*sy+8); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(0,201,255,0.55)'; ctx.font = '10px Zen Kaku Gothic New';
+      ctx.textAlign = 'center'; ctx.fillText('↕ 振動', mxp, cy + p.A*sy + 22);
+    }
+  }
+
+  // lambda arrow — 中央の軸上に表示
+  if (s.showLambdaArrow) {
+    const lamPx = p.lam * sx;
+    if (lamPx > 10 && lamPx < dw * 0.95) {
+      const xa = mg + 8;
+      const xb = xa + lamPx;
+      const ya = cy;   // 中央軸上
+
+      ctx.strokeStyle = 'rgba(255,107,53,0.85)';
+      ctx.lineWidth   = 1.5;
+      // 水平線
+      ctx.beginPath(); ctx.moveTo(xa, ya); ctx.lineTo(xb, ya); ctx.stroke();
+      // 左矢頭
+      ctx.beginPath(); ctx.moveTo(xa,ya); ctx.lineTo(xa+8,ya-4); ctx.lineTo(xa+8,ya+4); ctx.closePath();
+      ctx.fillStyle = 'rgba(255,107,53,0.85)'; ctx.fill();
+      // 右矢頭
+      ctx.beginPath(); ctx.moveTo(xb,ya); ctx.lineTo(xb-8,ya-4); ctx.lineTo(xb-8,ya+4); ctx.closePath();
+      ctx.fill();
+      // ラベル（軸の上）
+      ctx.fillStyle = 'rgba(255,107,53,0.95)';
+      ctx.font = 'bold 12px Space Grotesk';
+      ctx.textAlign = 'center';
+      ctx.fillText('λ', (xa+xb)/2, ya - 10);
+      // 数値（軸の下）
+      ctx.font = '10px JetBrains Mono';
+      ctx.fillText(`${p.lam.toFixed(1)} m`, (xa+xb)/2, ya + 18);
+    }
+  }
+
+  // period counter
+  if (s.showPeriodCounter) {
+    ctx.fillStyle = '#1e3a5f'; ctx.fillRect(mg, 4, 130, 22);
+    ctx.fillStyle = 'rgba(0,201,255,0.9)'; ctx.font = '11px JetBrains Mono';
+    ctx.textAlign = 'left';
+    ctx.fillText(`T = ${p.T.toFixed(2)} s  |  f = ${p.f.toFixed(1)} Hz`, mg+6, 19);
+  }
+}
+
+// ============================================================
+// Drawing — Longitudinal
+// ============================================================
+function drawL(ctx, w, h, p) {
+  const s = STEPS[currentStep];
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#06101e'; ctx.fillRect(0,0,w,h);
+
+  const mg=44, dw=w-mg*2, cy=h/2;
+  const DOMAIN = 12.0;           // 横波と同じ固定ドメイン [m]
+  const MAX_A  = 2.0;
+  const sx = dw / DOMAIN;        // pixels per meter（固定）
+  const dispScale = (dw * 0.06) / MAX_A;  // 粒子変位のピクセルスケール
+  const NL=44;
+
+  ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=1; ctx.setLineDash([4,6]);
+  ctx.beginPath(); ctx.moveTo(mg,cy); ctx.lineTo(mg+dw,cy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 強調粒子のインデックス（等間隔5つ）
+  const highlightNs = new Set([
+    Math.round(NL * 1/6),
+    Math.round(NL * 2/6),
+    Math.round(NL * 3/6),
+    Math.round(NL * 4/6),
+    Math.round(NL * 5/6),
+  ]);
+
+  // ── 通常粒子の描画 ──
+  for (let n=0; n<=NL; n++) {
+    if (highlightNs.has(n)) continue;   // 強調粒子は後で描く
+    const x0m  = (n/NL)*dw;
+    const x0   = x0m / sx;
+    const disp = p.A * Math.sin(p.k*x0 - p.om*t);
+    const density = -p.A * p.k * Math.cos(p.k*x0 - p.om*t);
+    const dN   = Math.tanh(density * 0.7 / MAX_A);
+    const ppx  = mg + x0m + disp * dispScale;
+    if (ppx < mg-10 || ppx > mg+dw+10) continue;
+
+    const rV=dN>0?Math.round(255*dN):40;
+    const gV=dN>0?Math.round(80*dN*0.4):60;
+    const bV=dN<0?Math.round(180*-dN):40;
+
+    if (s.showVector) {
+      ctx.strokeStyle='rgba(255,107,53,0.35)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(mg+x0m,cy); ctx.lineTo(ppx,cy); ctx.stroke();
+    }
+    const r=4+Math.abs(dN)*2;
+    ctx.beginPath(); ctx.arc(ppx,cy,r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${rV},${gV},${bV},0.85)`; ctx.fill();
+    if (dN>0.3){
+      ctx.beginPath(); ctx.arc(ppx,cy,r+5,0,Math.PI*2);
+      const g=ctx.createRadialGradient(ppx,cy,r,ppx,cy,r+5);
+      g.addColorStop(0,`rgba(255,107,53,${dN*0.25})`); g.addColorStop(1,'rgba(255,107,53,0)');
+      ctx.fillStyle=g; ctx.fill();
+    }
+  }
+
+  // ── 強調粒子（白・等間隔5つ）──
+  const highlightArr = [...highlightNs].sort((a,b)=>a-b);
+  const centerIdx    = highlightArr[2];   // 真ん中の粒子（ラベル表示用）
+
+  highlightArr.forEach(n => {
+    const x0m   = (n/NL)*dw;
+    const x0    = x0m / sx;
+    const disp  = p.A * Math.sin(p.k*x0 - p.om*t);
+    const eqPx  = mg + x0m;                      // 平衡位置
+    const curPx = eqPx + disp * dispScale;        // 現在位置
+
+    // 平衡位置の縦破線
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([2, 5]);
+    ctx.beginPath();
+    ctx.moveTo(eqPx, cy - 24);
+    ctx.lineTo(eqPx, cy + 24);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 変位ベクトル（平衡 → 現在）
+    if (Math.abs(disp) > 0.02) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth   = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(eqPx, cy);
+      ctx.lineTo(curPx, cy);
+      ctx.stroke();
+      // 矢頭
+      const dir = disp > 0 ? 1 : -1;
+      ctx.fillStyle = 'rgba(255,255,255,0.65)';
+      ctx.beginPath();
+      ctx.moveTo(curPx, cy);
+      ctx.lineTo(curPx - dir*7, cy - 4);
+      ctx.lineTo(curPx - dir*7, cy + 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 白い粒子本体
+    ctx.beginPath();
+    ctx.arc(curPx, cy, 7, 0, Math.PI*2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+
+    // グロー
+    ctx.beginPath();
+    ctx.arc(curPx, cy, 15, 0, Math.PI*2);
+    const gw = ctx.createRadialGradient(curPx,cy,7,curPx,cy,15);
+    gw.addColorStop(0,'rgba(255,255,255,0.2)');
+    gw.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle = gw; ctx.fill();
+  });
+
+  // 中央粒子のみ「← 振動 →」ラベル
+  {
+    const x0m  = (centerIdx/NL)*dw;
+    const eqPx = mg + x0m;
+    const maxDispPx = p.A * dispScale;
+    // 振動範囲の水平点線
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.moveTo(eqPx - maxDispPx - 6, cy);
+    ctx.lineTo(eqPx + maxDispPx + 6, cy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // ラベル
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font      = '10px Zen Kaku Gothic New';
+    ctx.textAlign = 'center';
+    ctx.fillText('← 振動 →', eqPx, cy + 30);
+  }
+
+  // 疎密ラベル
+  if (s.showDensityLabel) {
+    [0.15,0.65,1.15,1.65,2.15].forEach(frac=>{
+      const xm=frac*p.lam*sx; if(xm>dw) return;
+      const x = frac*p.lam;
+      const d=-p.A*p.k*Math.cos(p.k*x - p.om*t);
+      const thresh = MAX_A * p.k * 0.3;
+      const label=d>thresh?'密':d<-thresh?'疎':'';
+      if(!label) return;
+      ctx.fillStyle=d>0?'rgba(255,107,53,0.75)':'rgba(90,138,176,0.75)';
+      ctx.font='12px Zen Kaku Gothic New'; ctx.textAlign='center';
+      ctx.fillText(label, mg+xm, cy-20);
+    });
+  }
+
+  // λ arrow — 中央軸上に表示
+  if (s.showLambdaArrow) {
+    const lamPx = p.lam * sx;
+    if (lamPx > 10 && lamPx < dw * 0.95) {
+      const xa = mg + 8, xb = xa + lamPx, ya = cy;
+      ctx.strokeStyle='rgba(255,107,53,0.85)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(xa,ya); ctx.lineTo(xb,ya); ctx.stroke();
+      ctx.fillStyle='rgba(255,107,53,0.85)';
+      ctx.beginPath(); ctx.moveTo(xa,ya); ctx.lineTo(xa+8,ya-4); ctx.lineTo(xa+8,ya+4); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(xb,ya); ctx.lineTo(xb-8,ya-4); ctx.lineTo(xb-8,ya+4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='rgba(255,107,53,0.95)';
+      ctx.font='bold 12px Space Grotesk'; ctx.textAlign='center';
+      ctx.fillText('λ', (xa+xb)/2, ya-10);
+      ctx.font='10px JetBrains Mono';
+      ctx.fillText(`${p.lam.toFixed(1)} m`, (xa+xb)/2, ya+18);
+    }
+  }
+}
+
+// ============================================================
+// Render
+// ============================================================
+function draw() {
+  const p = getP();
+  const s = STEPS[currentStep];
+  if (s.showT && cT.width > 0 && cT.height > 0) drawT(ctxT, cT.width, cT.height, p);
+  if (s.showL && cL.width > 0 && cL.height > 0) drawL(ctxL, cL.width, cL.height, p);
+}
+
+function loop(now) {
+  if (rafId === null) return;          // キャンセルされていたら止まる
+  if (playing) {
+    if (lastTime===null) lastTime=now;
+    const dt  = (now-lastTime)/1000;
+    lastTime  = now;
+    const spd = parseFloat(document.getElementById('speedSlider').value);
+    t += dt * spd;
+  } else {
+    lastTime = null;                   // 一時停止中はリセットしておく
+  }
+  draw();
+  updateParamDisplay();
+  rafId = requestAnimationFrame(loop);
+}
+
+// 表示数値の更新（drawとは分離）
+function updateParamDisplay() {
+  const { f, lam, v, T, A } = getP();
+  document.getElementById('fVal').textContent   = f.toFixed(1);
+  document.getElementById('lamVal').textContent = lam.toFixed(1);
+  document.getElementById('aVal').textContent   = A.toFixed(1);
+  document.getElementById('eqF').textContent    = f.toFixed(1);
+  document.getElementById('eqLam').textContent  = lam.toFixed(1);
+  document.getElementById('eqV').textContent    = v.toFixed(1);
+}
+
+function onParam() {
+  updateParamDisplay();
+  // スライダー操作時は即座に再描画（ループが止まっていても確実に反映）
+  draw();
+}
+
+function togglePlay() {
+  playing = !playing;
+  const btn = document.getElementById('btnPlay');
+  btn.textContent = playing ? '⏸ 一時停止' : '▶ 再生';
+  btn.classList.toggle('paused', !playing);
+  // ループは常に回り続けるので再起動不要
+}
+
+function resetAnim() {
+  t = 0; lastTime = null;
+  draw();
+}
+
+function startLoop() {
+  if (rafId !== null) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
+}
+
+// ============================================================
+// Init
+// ============================================================
+updateParamDisplay();
+buildStepBar();
+goStep(0);
+// レイアウト確定後にcanvasサイズを設定してループ開始
+setTimeout(() => {
+  resizeCanvases();
+  startLoop();
+}, 150);
+</script>
+</body>
+</html>
