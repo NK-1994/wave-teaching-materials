@@ -1,2 +1,19 @@
-# wave-teaching-materials
-波についての教材
+# 波についての教材集
+
+物理基礎・波動単元のインタラクティブ教材です。
+ブラウザのみで動作します（インストール不要）。
+
+## 教材一覧
+
+| 教材 | 内容 | リンク |
+|---|---|---|
+| 波形ビューアー | 横波・縦波・v=fλ をステップ式で学ぶ | [開く](https://nk-1994.github.io/wave-teaching-materials/wave_viewer.html) |
+
+## 対象
+- 中学・高校の物理基礎（波動単元）
+
+## 動作環境
+- PC（Chrome / Safari / Firefox）✅
+- iPad（Safari）✅
+- インストール不要
+- インターネット接続が必要
