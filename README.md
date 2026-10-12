@@ -8,6 +8,7 @@
 | 教材 | 内容 | リンク |
 |---|---|---|
 | 波形ビューアー | 横波・縦波・v=fλ をステップ式で学ぶ | [開く](https://nk-1994.github.io/wave-teaching-materials/wave_viewer.html) |
+| スリンキー定常波シミュレーター | クランクで駆動したスリンキーの縦波・共鳴・コイルの接触を質点とバネのモデルで計算する | [開く](https://nk-1994.github.io/wave-teaching-materials/slinky_standing_wave.html) |
 
 ## 対象
 - 中学・高校の物理基礎（波動単元）

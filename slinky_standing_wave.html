@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important} body{margin:0} img{max-width:100%}</style>
+<title>スリンキー定常波シミュレーター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@700&display=swap">
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+  svg: { fontCache: 'global' },
+  options: { enableMenu: false }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" defer></script>
+<style>
+/* レイアウト: 上から 装置の側面図 → 変位の分布 → 操作パネル｜共鳴曲線と測定値 → モデル */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #16202a;
+  --muted: #5b6875;
+  --rule: #d5dbe1;
+  --steel: #2a5d93;
+  --steel-soft: #9db7d3;
+  --brass: #a8711a;
+  --alert: #c8372d;
+  --grid: #e4e8ec;
+  --font-display: "Zen Kaku Gothic New", "BIZ UDPGothic", "Hiragino Sans", sans-serif;
+  --font-body: "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141a; --surface: #161d25; --ink: #e4eaf0; --muted: #8c99a6; --rule: #2a3440;
+    --steel: #78aee8; --steel-soft: #3f5f82; --brass: #d9a441; --alert: #ff6b5e; --grid: #1f2831;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141a; --surface: #161d25; --ink: #e4eaf0; --muted: #8c99a6; --rule: #2a3440;
+  --steel: #78aee8; --steel-soft: #3f5f82; --brass: #d9a441; --alert: #ff6b5e; --grid: #1f2831;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.7;
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: grid; gap: 16px; }
+header h1 { font-family: var(--font-display); font-size: 1.6rem; margin: 0; text-wrap: balance; letter-spacing: 0.02em; }
+header p { margin: 4px 0 0; color: var(--muted); }
+.spec { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
+.spec b { color: var(--ink); font-family: var(--font-mono); font-weight: 500; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; min-width: 0; }
+.panel h2 { font-size: 0.82rem; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
+canvas { display: block; width: 100%; }
+#cv-sim { height: 210px; }
+#cv-u { height: 250px; }
+#cv-res { height: 240px; }
+.cols { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 820px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.ctrl { display: grid; gap: 12px; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; min-width: 640px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.06em; font-weight: 700; }
+td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.src { display: inline-block; font-size: 0.74rem; padding: 0 7px; border-radius: 999px; border: 1px solid var(--rule); margin-right: 4px; white-space: nowrap; }
+.src.fixed, .src.spec { border-color: var(--steel); color: var(--steel); }
+.src.est { border-color: var(--brass); color: var(--brass); }
+.src.tbd { border-color: var(--alert); color: var(--alert); }
+.stack { display: grid; gap: 0; }
+.stack canvas { display: block; width: 100%; }
+.row { display: grid; grid-template-columns: 4.6rem minmax(0, 1fr) 5.4rem; align-items: center; gap: 8px; }
+.row label { font-size: 0.9rem; }
+.row output { font-family: var(--font-mono); font-size: 0.88rem; text-align: right; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--steel); }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+button, select {
+  font: inherit; font-size: 0.88rem; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--rule); border-radius: 4px; padding: 4px 10px; cursor: pointer;
+}
+button:hover { border-color: var(--steel); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+button.primary { background: var(--steel); color: var(--surface); border-color: var(--steel); }
+button.mode { font-family: var(--font-mono); }
+button.mode.on { border-color: var(--steel); color: var(--steel); font-weight: 500; }
+.note { font-size: 0.82rem; color: var(--muted); margin: 0; }
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 18px; margin-top: 12px; }
+.ro { display: grid; gap: 0; }
+.ro span { font-size: 0.8rem; color: var(--muted); }
+.ro b { font-family: var(--font-mono); font-weight: 500; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.chip { display: inline-block; font-size: 0.78rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
+.chip.alert { border-color: var(--alert); color: var(--alert); font-weight: 700; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+.model { display: grid; gap: 6px; }
+.model p { margin: 0; max-width: 72ch; }
+.model .eq { overflow-x: auto; }
+mjx-container { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <h1>スリンキー定常波シミュレーター</h1>
+    <p>一端を壁に固定し、もう一端をクランクで振動させたスリンキー（金属製の Original Slinky を想定）の縦波。各巻きを質点、巻きの間をバネとして運動方程式を数値的に解き、コイル同士の接触も含めています。</p>
+    <div class="spec">
+      <span>自然長 <b>5.40 cm（2.125″）</b></span><span>質量 <b id="spec-M">0.172 kg</b></span><span>巻数 <b id="spec-N">98</b></span><span>1巻きの厚み <b id="spec-w">0.68 mm</b></span><span>クランクの振幅 <b id="spec-A">5.0 cm</b></span><span>連接棒 <b id="spec-l">20 cm</b></span><span>伸ばした長さ <b id="spec-L">100 cm</b></span>
+    </div>
+  </header>
+
+  <section class="panel" aria-label="装置と各コイルの変位">
+    <h2>装置（側面図・実寸比）と各コイルの変位 \(u\)（縦軸に描いた縦波）</h2>
+    <div class="stack">
+      <canvas id="cv-sim"></canvas>
+      <canvas id="cv-u"></canvas>
+    </div>
+    <div class="legend"><span><i style="border-color:var(--steel)"></i>コイル・現在の変位</span><span><i style="border-color:var(--alert)"></i>隣のコイルと接触</span><span><i style="border-color:var(--brass)"></i>クランク・連接棒・スライダー</span><span><i style="border-color:var(--steel-soft)"></i>直近の最大振幅（シミュレーション）</span><span><i style="border-color:var(--brass);border-top-style:dashed"></i>理論の振幅（減衰あり・線形）</span></div>
+    <p class="note" style="margin-top:6px">上下の図は横方向の座標を共有しています。縦の補助線は、つり合いの位置で 10 cm ごとです。</p>
+  </section>
+
+  <div class="cols">
+    <section class="panel ctrl" aria-label="操作">
+      <h2>操作</h2>
+      <div class="btns">
+        <button id="btn-play" class="primary">一時停止</button>
+        <button id="btn-reset">はじめから</button>
+        <select id="sel-speed" aria-label="再生速度">
+          <option value="0.25">0.25 倍速</option>
+          <option value="0.5">0.5 倍速</option>
+          <option value="1" selected>等速</option>
+        </select>
+      </div>
+      <div class="row"><label for="in-f">振動数 \(f\)</label><input id="in-f" type="range" min="0.05" max="6" step="0.005"><output id="out-f"></output></div>
+      <div>
+        <p class="note" id="out-rpm" style="margin-top:-6px;text-align:right"></p>
+        <p class="note" style="margin-bottom:4px">共鳴振動数に合わせる</p>
+        <div class="btns" id="modes"></div>
+      </div>
+      <div class="row"><label for="in-A">振幅 \(A\)</label><input id="in-A" type="range" min="0" max="10" step="0.1"><output id="out-A"></output></div>
+      <div class="row"><label for="in-l">連接棒 \(l\)</label><input id="in-l" type="range" min="6" max="60" step="0.5"><output id="out-l"></output></div>
+      <div class="row"><label for="in-G">減衰率 \(\Gamma\)</label><input id="in-G" type="range" min="0" max="3" step="0.01"><output id="out-G"></output></div>
+      <div class="row"><label for="in-L">長さ \(L\)</label><input id="in-L" type="range" min="40" max="120" step="1"><output id="out-L"></output></div>
+      <div class="row"><label for="in-K">バネ定数 \(K\)</label><input id="in-K" type="range" min="0.2" max="5" step="0.05"><output id="out-K"></output></div>
+      <div class="row"><label for="in-M">質量 \(M\)</label><input id="in-M" type="range" min="0.05" max="0.5" step="0.001"><output id="out-M"></output></div>
+      <div class="row"><label for="in-N">巻数 \(N\)</label><input id="in-N" type="range" min="30" max="120" step="1"><output id="out-N"></output></div>
+      <p class="note">各パラメータの初期値と根拠は、下の表にまとめています。\(L\) や \(N\) を変えると、はじめから計算し直します。</p>
+    </section>
+
+    <section class="panel" aria-label="共鳴曲線と測定値">
+      <h2>共鳴曲線（理論・線形）と現在の値</h2>
+      <canvas id="cv-res"></canvas>
+      <div class="legend"><span><i style="border-color:var(--steel)"></i>腹の振幅 \(B/A\)</span><span><i style="border-color:var(--alert)"></i>線形理論でもコイルが接触する範囲</span><span><i style="border-color:var(--brass)"></i>現在の振動数</span></div>
+      <div class="readouts">
+        <div class="ro"><span>経過時間</span><b id="ro-t">0.0 s</b></div>
+        <div class="ro"><span>波の速さ \(v\)</span><b id="ro-v"></b></div>
+        <div class="ro"><span>波長 \(\lambda = v/f\)</span><b id="ro-lam"></b></div>
+        <div class="ro"><span>\(L/\lambda\)</span><b id="ro-ratio"></b></div>
+        <div class="ro"><span>腹の振幅（理論）</span><b id="ro-Bth"></b></div>
+        <div class="ro"><span>腹の振幅（シミュレーション）</span><b id="ro-Bsim"></b></div>
+        <div class="ro"><span>コイルの最小のすき間</span><b id="ro-gap"></b></div>
+        <div class="ro"><span>振動数 \(2f\) の成分の振幅 \(A^2/4l\)</span><b id="ro-h2"></b></div>
+        <div class="ro"><span>接触</span><b><span id="ro-contact" class="chip">なし</span></b></div>
+      </div>
+      <p class="note" style="margin-top:10px">減衰が小さいと、定常状態に落ち着くまでに時間がかかります（目安は \(2/\Gamma\) の数倍）。動かし始めの自由振動が残っている間は、理論の振幅と一致しません。</p>
+    </section>
+  </div>
+
+  <section class="panel" aria-label="パラメータの根拠">
+    <h2>パラメータの初期値と根拠</h2>
+    <div class="tbl">
+    <table>
+      <thead><tr><th>パラメータ</th><th>初期値</th><th>根拠</th><th>実測のしかた</th></tr></thead>
+      <tbody>
+        <tr><td>自然長 \(L_0\)</td><td class="num">5.40 cm</td><td><span class="src fixed">商品表示</span> 2.125″（固定）</td><td>—</td></tr>
+        <tr><td>質量 \(M\)</td><td class="num">0.172 kg</td><td><span class="src spec">商品表示</span> 0.38 lb（梱包を含む可能性あり）</td><td>本体だけをはかりで量る</td></tr>
+        <tr><td>巻数 \(N\)</td><td class="num">98</td><td><span class="src est">推定</span> 商品写真から約100巻き、Wikipedia では98巻き</td><td>10巻きごとに印を付けて数える</td></tr>
+        <tr><td>バネ定数 \(K\)</td><td class="num">0.84 N/m</td><td><span class="src tbd">仮定</span> 金属製スリンキーの典型値（Cross &amp; Wheatland 2012）</td><td>水平に置いて長さ \(L\) まで引き、ばねばかりで力 \(F\) を測る。\(K = F/(L - L_0)\)</td></tr>
+        <tr><td>伸ばした長さ \(L\)</td><td class="num">1.00 m</td><td><span class="src fixed">実験条件</span></td><td>—</td></tr>
+        <tr><td>クランク半径 \(A\)</td><td class="num">3.0 cm</td><td><span class="src est">推定</span> クランクの商品写真から 2.5〜3.5 cm</td><td>金属棒が往復する幅の半分</td></tr>
+        <tr><td>連接棒 \(l\)</td><td class="num">12.5 cm</td><td><span class="src est">推定</span> クランクの商品写真から 12〜13 cm</td><td>連接棒の両端のピンの間隔</td></tr>
+        <tr><td>振動数 \(f\)</td><td class="num">2.00 Hz</td><td><span class="src tbd">仮定</span> TTギアモーター＋単三2本の一般的な回転数（毎分100〜150回転）</td><td>10往復の時間 \(T_{10}\) を測る。\(f = 10/T_{10}\)</td></tr>
+        <tr><td>減衰率 \(\Gamma\)</td><td class="num">0.30 /s</td><td><span class="src tbd">仮定</span></td><td>共鳴させてからモーターを止め、振幅が \(1/e\) になる時間 \(\tau\) を測る。\(\Gamma = 2/\tau\)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="note" style="margin-top:8px">「推定」「仮定」の値は操作パネルのスライダーで変えられます。実測したら、その値に合わせてください。</p>
+  </section>
+
+  <section class="panel model" aria-label="モデル">
+    <h2>モデル</h2>
+    <p>巻き \(j\)（\(j = 0, 1, \dots, N-1\)）を質量 \(m = M/N\) の質点、隣り合う巻きの間をバネ定数 \(\kappa = (N-1)K\) のバネとします。巻き \(0\) はクランクで動かし、巻き \(N-1\) は壁に固定します。</p>
+    <div class="eq">\[ m\,\ddot u_j = \kappa\,(u_{j+1} - 2u_j + u_{j-1}) - m\Gamma\,\dot u_j + (\text{接触力}) \]</div>
+    <p>隣り合う巻きの中心間の距離が1巻きの厚み \(L_0/N\)（\(L_0 = 5.40\ \mathrm{cm}\) は自然長＝コイルが密着した長さ）より小さくなると、強いバネで押し返す接触力がはたらきます。クランクは半径 \(A\) の円板に長さ \(l\) の連接棒をつなぎ、レール上のスライダーを往復させる機構です。巻き \(0\) の変位は</p>
+    <div class="eq">\[ u_0 = A\cos\theta + \sqrt{l^2 - A^2\sin^2\theta} - l \simeq A\cos\theta - \frac{A^2}{4l}\,(1 - \cos 2\theta), \qquad \theta = 2\pi f t \]</div>
+    <p>で、単振動に振動数 \(2f\) の成分（振幅 \(A^2/4l\)）が混ざります。\(2f\) が共鳴振動数に近いと、この成分でも定常波が立ちます。重力と摩擦は、減衰率 \(\Gamma\) にまとめています。</p>
+    <div class="eq">\[ f_n = \frac{1}{\pi}\sqrt{\frac{\kappa}{m}}\,\sin\frac{n\pi}{2(N-1)} \simeq \frac{n}{2}\sqrt{\frac{K}{M}}, \qquad \frac{B}{A} \simeq \frac{2Q}{n\pi},\quad Q = \frac{2\pi f_n}{\Gamma} \]</div>
+    <p>共鳴曲線と理論の振幅は、接触力を除いた線形の離散モデルを、振動数 \(f\) の成分（振幅 \(A\)）について厳密に解いたものです。コイルが接触し始めると、シミュレーションの振幅は理論より小さく頭打ちになります。</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  // ---------- 固定パラメータ ----------
+  let NCOIL = 98, NG = NCOIL - 1;            // 巻数, すき間の数
+  const L0 = 0.053975;                        // 自然長 = 密着長 2.125" [m]
+  let W = L0 / NCOIL;                         // 1巻きの厚み（接触する中心間距離）[m]
+  const KC_RATIO = 100;                       // 接触バネの硬さ / κ
+
+  const P = { f: 2.0, A: 0.03, G: 0.3, L: 1.0, K: 0.84, M: 0.172, l: 0.125, speed: 1 };
+  let D = {};                                 // 派生量
+  let x = new Float64Array(NCOIL), v = new Float64Array(NCOIL), env = new Float64Array(NCOIL);
+  let contact = new Uint8Array(NG);
+  let t = 0, phase = 0, running = true, minGap = 1;
+  let theory = null, resCurve = null;
+  let T = new Float64Array(NG);
+
+  const $ = id => document.getElementById(id);
+
+  function derive() {
+    const a = P.L / NG, a0 = L0 / NG;
+    const kappa = NG * P.K, m = P.M / NCOIL;
+    const kc = KC_RATIO * kappa;
+    const wc = 2 * Math.sqrt((kappa + kc) / m);
+    const fcut = Math.sqrt(kappa / m) / Math.PI;
+    D = { a, a0, kappa, m, kc, cdamp: 0.4 * Math.sqrt(kc * m), dtMax: 0.25 / wc,
+          v: P.L * Math.sqrt(P.K / P.M), fcut,
+          fn: n => fcut * Math.sin(n * Math.PI / (2 * NG)),
+          f1c: 0.5 * Math.sqrt(P.K / P.M) };
+  }
+
+  function reset() {
+    if (x.length !== NCOIL) { x = new Float64Array(NCOIL); v = new Float64Array(NCOIL); env = new Float64Array(NCOIL); contact = new Uint8Array(NG); T = new Float64Array(NG); }
+    for (let j = 0; j < NCOIL; j++) { x[j] = j * D.a; v[j] = 0; env[j] = 0; }
+    contact.fill(0); t = 0; phase = Math.PI / 2; minGap = D.a;
+  }
+
+  // ---------- 複素数（理論計算用） ----------
+  const cx = (re, im) => ({ re, im });
+  const cmul = (p, q) => cx(p.re * q.re - p.im * q.im, p.re * q.im + p.im * q.re);
+  const cdiv = (p, q) => { const d = q.re * q.re + q.im * q.im; return cx((p.re * q.re + p.im * q.im) / d, (p.im * q.re - p.re * q.im) / d); };
+  const csqrt = z => { const r = Math.hypot(z.re, z.im); const re = Math.sqrt(Math.max(0, (r + z.re) / 2)); const im = Math.sqrt(Math.max(0, (r - z.re) / 2)); return cx(re, z.im < 0 ? -im : im); };
+  const clog = z => cx(Math.log(Math.hypot(z.re, z.im)), Math.atan2(z.im, z.re));
+  const cacos = z => { const s = csqrt(cx(1 - (z.re * z.re - z.im * z.im), -2 * z.re * z.im)); const w = cx(z.re - s.im, z.im + s.re); const l = clog(w); return cx(l.im, -l.re); };
+  const csin = z => cx(Math.sin(z.re) * Math.cosh(z.im), Math.cos(z.re) * Math.sinh(z.im));
+  const cscale = (z, s) => cx(z.re * s, z.im * s);
+
+  // 線形・減衰ありの離散モデルの定常解 U_j = A sin(q(NG-j)) / sin(q NG)
+  function profile(f) {
+    const w = 2 * Math.PI * f;
+    const z = cx(1 - D.m * w * w / (2 * D.kappa), D.m * P.G * w / (2 * D.kappa));
+    const q = cacos(z);
+    const den = csin(cscale(q, NG));
+    const U = [];
+    for (let j = 0; j < NCOIL; j++) U.push(cscale(cdiv(csin(cscale(q, NG - j)), den), P.A));
+    let maxAmp = 0, maxDelta = 0;
+    for (let j = 0; j < NCOIL; j++) {
+      const a = Math.hypot(U[j].re, U[j].im); if (a > maxAmp) maxAmp = a;
+      if (j < NG) { const d = Math.hypot(U[j + 1].re - U[j].re, U[j + 1].im - U[j].im); if (d > maxDelta) maxDelta = d; }
+    }
+    return { amp: U.map(u => Math.hypot(u.re, u.im)), maxAmp, maxDelta };
+  }
+
+  function fMax() { return Math.min(6 * D.f1c, 0.9 * D.fcut); }
+
+  function computeTheory() {
+    theory = profile(P.f);
+    const fmax = fMax(), pts = 600, arr = [];
+    for (let i = 1; i <= pts; i++) {
+      const f = fmax * i / pts;
+      const p = profile(f);
+      arr.push({ f, r: P.A > 0 ? p.maxAmp / P.A : 0, contact: p.maxDelta > D.a - W });
+    }
+    resCurve = { fmax, arr };
+  }
+
+  // ---------- 数値積分 ----------
+  function step(h) {
+    const w = 2 * Math.PI * P.f;
+    phase += w * h; t += h;
+    const sn = Math.sin(phase), cs = Math.cos(phase), rt = Math.sqrt(P.l * P.l - P.A * P.A * sn * sn);
+    x[0] = P.A * cs + rt - P.l;
+    v[0] = w * (-P.A * sn - P.A * P.A * sn * cs / rt);
+    x[NG] = P.L; v[NG] = 0;
+    let mg = Infinity;
+    for (let j = 0; j < NG; j++) {
+      const g = x[j + 1] - x[j];
+      let tens = D.kappa * (g - D.a0);
+      if (g < W) { tens -= D.kc * (W - g); tens += D.cdamp * (v[j + 1] - v[j]); contact[j] = 1; } else contact[j] = 0;
+      T[j] = tens; if (g < mg) mg = g;
+    }
+    minGap = Math.min(minGap, mg);
+    const decay = Math.exp(-h / Math.max(3 / Math.max(P.f, 0.05), 2));
+    for (let j = 1; j < NG; j++) {
+      const F = T[j] - T[j - 1] - D.m * P.G * v[j];
+      v[j] += F / D.m * h; x[j] += v[j] * h;
+    }
+    for (let j = 0; j < NCOIL; j++) {
+      const u = Math.abs(x[j] - j * D.a);
+      env[j] = Math.max(env[j] * decay, u);
+    }
+  }
+
+  // ---------- 描画 ----------
+  const css = () => { const s = getComputedStyle(document.documentElement); const g = k => s.getPropertyValue(k).trim(); return { ink: g('--ink'), muted: g('--muted'), rule: g('--rule'), steel: g('--steel'), soft: g('--steel-soft'), brass: g('--brass'), alert: g('--alert'), grid: g('--grid'), surface: g('--surface'), mono: g('--font-mono') }; };
+
+  function fit(cv) {
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const W2 = Math.round(r.width * dpr), H2 = Math.round(r.height * dpr);
+    if (cv.width !== W2 || cv.height !== H2) { cv.width = W2; cv.height = H2; }
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w: r.width, h: r.height };
+  }
+
+  function drawSim(C) {
+    const { ctx, w, h } = fit($('cv-sim'));
+    ctx.clearRect(0, 0, w, h);
+    const { sx, left } = geom(w);
+    const X = xm => left + xm * sx;
+    const cy = h * 0.5, coilH = Math.min(70, h * 0.36);
+    vgrid(ctx, X, 0, h, C);
+    // 壁
+    ctx.fillStyle = C.muted; ctx.fillRect(X(P.L), cy - coilH * 0.9, 4, coilH * 1.8);
+    ctx.strokeStyle = C.muted; ctx.lineWidth = 1;
+    for (let y = cy - coilH * 0.9; y < cy + coilH * 0.9; y += 8) { ctx.beginPath(); ctx.moveTo(X(P.L) + 4, y); ctx.lineTo(X(P.L) + 12, y + 8); ctx.stroke(); }
+    // クランク（円板＋連接棒＋スライダー）
+    const R = P.A * sx, ccx = X(0) - P.l * sx, ccy = cy;
+    const px = ccx + R * Math.cos(phase), py = ccy - R * Math.sin(phase);
+    const sxp = X(x[0]);
+    // レール
+    ctx.strokeStyle = C.rule; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X(-P.A) - 14, cy + 9); ctx.lineTo(X(P.A) + 14, cy + 9); ctx.stroke();
+    ctx.strokeStyle = C.brass; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(ccx, ccy, Math.max(R, 3) + 6, 0, 2 * Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ccx, ccy); ctx.lineTo(px, py); ctx.stroke();
+    // 連接棒
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sxp, cy); ctx.stroke();
+    ctx.fillStyle = C.brass; ctx.beginPath(); ctx.arc(px, py, 3.5, 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(ccx, ccy, 2.5, 0, 2 * Math.PI); ctx.fill();
+    // スライダー
+    ctx.fillRect(sxp - 7, cy - 7, 14, 14);
+    // クランク側の端（x = 0）の位置
+    ctx.strokeStyle = C.rule; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X(0), cy - coilH * 0.9); ctx.lineTo(X(0), h - 24); ctx.stroke(); ctx.setLineDash([]);
+    // つり合いの位置の目盛
+    ctx.fillStyle = C.muted; ctx.font = `11px ${C.mono}`; ctx.textAlign = 'center';
+    for (let cm = 0; cm <= P.L * 100 + 1e-6; cm += 10) { const xx = X(cm / 100); ctx.fillRect(xx, h - 22, 1, 5); ctx.fillText(cm + '', xx, h - 6); }
+    ctx.textAlign = 'right'; ctx.fillText('cm', w - 2, h - 26);
+    // コイル
+    for (let j = 0; j < NCOIL; j++) {
+      const hit = (j > 0 && contact[j - 1]) || (j < NG && contact[j]);
+      ctx.strokeStyle = hit ? C.alert : C.steel; ctx.lineWidth = hit ? 2 : 1.2;
+      ctx.beginPath(); ctx.ellipse(X(x[j]), cy, 2.2, coilH / 2, 0, 0, 2 * Math.PI); ctx.stroke();
+    }
+  }
+
+  // 装置図と変位グラフで共通の横方向の座標（x = 0 がクランク側の端のつり合いの位置）
+  function geom(w) {
+    const right = 26;
+    const sx = (w - 24 - right) / (P.L + P.l + P.A);
+    return { sx, left: (P.l + P.A) * sx + 24, right };
+  }
+
+  function vgrid(ctx, X, y0, y1, C) {
+    ctx.save(); ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+    for (let cm = 0; cm <= P.L * 100 + 1e-6; cm += 10) { const xx = Math.round(X(cm / 100)) + 0.5; ctx.beginPath(); ctx.moveTo(xx, y0); ctx.lineTo(xx, y1); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  let yScale = 0.1;
+  function drawU(C) {
+    const { ctx, w, h } = fit($('cv-u'));
+    ctx.clearRect(0, 0, w, h);
+    const padT = 12, padB = 30;
+    const g = geom(w), padL = g.left, padR = g.right, ph = h - padT - padB;
+    let envMax = 0; for (let j = 0; j < NCOIL; j++) envMax = Math.max(envMax, env[j]);
+    const target = Math.max(theory ? theory.maxAmp : 0, envMax, P.A, 0.01) * 1.15;
+    yScale += (target - yScale) * 0.06;
+    const X = xm => g.left + xm * g.sx, Y = u => padT + ph / 2 - u / yScale * (ph / 2);
+    vgrid(ctx, X, 0, padT + ph, C);
+    // 目盛
+    const stepCm = niceStep(yScale * 100);
+    ctx.font = `11px ${C.mono}`; ctx.fillStyle = C.muted; ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.textAlign = 'right';
+    for (let c = -Math.floor(yScale * 100 / stepCm) * stepCm; c <= yScale * 100; c += stepCm) {
+      const y = Y(c / 100); ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(X(P.L), y); ctx.stroke(); ctx.fillText(fmt(c, 0), padL - 6, y + 4);
+    }
+    ctx.save(); ctx.translate(Math.max(12, padL - 44), padT + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText('変位 (cm)', 0, 0); ctx.restore();
+    // クランク側の端と固定端の位置
+    ctx.strokeStyle = C.rule; ctx.setLineDash([3, 3]);
+    for (const xm of [0, P.L]) { ctx.beginPath(); ctx.moveTo(X(xm), padT); ctx.lineTo(X(xm), padT + ph); ctx.stroke(); }
+    ctx.setLineDash([]);
+    ctx.textAlign = 'center';
+    for (let cm = 0; cm <= P.L * 100 + 1e-6; cm += 10) ctx.fillText(cm + '', X(cm / 100), h - 10);
+    ctx.textAlign = 'right'; ctx.fillText('つり合いの位置 (cm)', X(P.L), padT + 10);
+    ctx.strokeStyle = C.rule; ctx.beginPath(); ctx.moveTo(padL, Y(0)); ctx.lineTo(X(P.L), Y(0)); ctx.stroke();
+    // 理論の振幅
+    if (theory) {
+      ctx.strokeStyle = C.brass; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
+      for (const s of [1, -1]) { ctx.beginPath(); for (let j = 0; j < NCOIL; j++) { const xx = X(j * D.a), yy = Y(s * theory.amp[j]); j ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); }
+      ctx.setLineDash([]);
+    }
+    // シミュレーションの最大振幅
+    ctx.strokeStyle = C.soft; ctx.lineWidth = 2;
+    for (const s of [1, -1]) { ctx.beginPath(); for (let j = 0; j < NCOIL; j++) { const xx = X(j * D.a), yy = Y(s * env[j]); j ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); }
+    // 現在の変位
+    ctx.strokeStyle = C.steel; ctx.lineWidth = 2; ctx.beginPath();
+    for (let j = 0; j < NCOIL; j++) { const xx = X(j * D.a), yy = Y(x[j] - j * D.a); j ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+    ctx.stroke();
+    ctx.fillStyle = C.steel;
+    for (let j = 0; j < NCOIL; j++) { ctx.beginPath(); ctx.arc(X(j * D.a), Y(x[j] - j * D.a), 1.8, 0, 2 * Math.PI); ctx.fill(); }
+  }
+
+  function drawRes(C) {
+    const { ctx, w, h } = fit($('cv-res'));
+    ctx.clearRect(0, 0, w, h);
+    if (!resCurve) return;
+    const padL = 44, padR = 14, padT = 12, padB = 32;
+    const pw = w - padL - padR, ph = h - padT - padB;
+    let rmax = 0; for (const p of resCurve.arr) rmax = Math.max(rmax, p.r);
+    const ytop = Math.max(2, Math.min(rmax * 1.08, 60));
+    const X = f => padL + f / resCurve.fmax * pw, Y = r => padT + ph - Math.min(r, ytop) / ytop * ph;
+    ctx.font = `11px ${C.mono}`; ctx.fillStyle = C.muted; ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+    const ys = niceStep(ytop); ctx.textAlign = 'right';
+    for (let r = 0; r <= ytop + 1e-9; r += ys) { const y = Y(r); ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke(); ctx.fillText(fmt(r, ys < 1 ? 1 : 0), padL - 6, y + 4); }
+    const xs = niceStep(resCurve.fmax); ctx.textAlign = 'center';
+    for (let f = 0; f <= resCurve.fmax + 1e-9; f += xs) ctx.fillText(fmt(f, xs < 1 ? 1 : 0), X(f), h - 14);
+    ctx.textAlign = 'right'; ctx.fillText('振動数 f (Hz)', w - padR, h - 1);
+    ctx.save(); ctx.translate(11, padT + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText('B / A', 0, 0); ctx.restore();
+    // 曲線（接触範囲は赤）
+    ctx.lineWidth = 2;
+    for (let i = 1; i < resCurve.arr.length; i++) {
+      const p0 = resCurve.arr[i - 1], p1 = resCurve.arr[i];
+      ctx.strokeStyle = (p0.contact || p1.contact) ? C.alert : C.steel;
+      ctx.beginPath(); ctx.moveTo(X(p0.f), Y(p0.r)); ctx.lineTo(X(p1.f), Y(p1.r)); ctx.stroke();
+    }
+    // 現在の振動数
+    ctx.strokeStyle = C.brass; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(P.f), padT); ctx.lineTo(X(P.f), padT + ph); ctx.stroke();
+  }
+
+  function niceStep(range) { const raw = range / 5, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
+  function fmt(n, d) { return Number(n).toFixed(d); }
+
+  // ---------- 表示の更新 ----------
+  function updateReadouts() {
+    const lam = D.v / P.f;
+    $('ro-t').textContent = fmt(t, 1) + ' s';
+    $('ro-v').textContent = fmt(D.v, 2) + ' m/s';
+    $('ro-lam').textContent = fmt(lam * 100, 1) + ' cm';
+    $('ro-ratio').textContent = fmt(P.L / lam, 3);
+    $('ro-Bth').textContent = theory ? fmt(theory.maxAmp * 100, 1) + ' cm' : '—';
+    let envMax = 0; for (let j = 0; j < NCOIL; j++) envMax = Math.max(envMax, env[j]);
+    $('ro-Bsim').textContent = fmt(envMax * 100, 1) + ' cm';
+    $('ro-gap').textContent = fmt(minGap * 1000, 1) + ' mm';
+    const any = contact.some(c => c);
+    const chip = $('ro-contact');
+    chip.textContent = any ? '接触中' : (minGap < W ? '接触あり（過去）' : 'なし');
+    chip.className = 'chip' + (any || minGap < W ? ' alert' : '');
+  }
+
+  function syncInputs() {
+    const fm = fMax();
+    const fin = $('in-f'); fin.max = fm.toFixed(3); if (P.f > fm) P.f = fm; fin.value = P.f;
+    $('out-f').textContent = fmt(P.f, 3) + ' Hz';
+    $('out-rpm').textContent = '毎分 ' + fmt(P.f * 60, 0) + ' 回転';
+    $('spec-M').textContent = fmt(P.M, 3) + ' kg';
+    $('in-A').value = P.A * 100; $('out-A').textContent = fmt(P.A * 100, 1) + ' cm';
+    $('in-l').value = P.l * 100; $('out-l').textContent = fmt(P.l * 100, 1) + ' cm'; $('spec-l').textContent = fmt(P.l * 100, 1) + ' cm';
+    $('ro-h2').textContent = fmt(P.A * P.A / (4 * P.l) * 100, 2) + ' cm';
+    $('in-G').value = P.G; $('out-G').textContent = fmt(P.G, 2) + ' /s';
+    $('in-L').value = P.L * 100; $('out-L').textContent = fmt(P.L * 100, 0) + ' cm';
+    $('in-K').value = P.K; $('out-K').textContent = fmt(P.K, 2) + ' N/m';
+    $('in-M').value = P.M; $('out-M').textContent = fmt(P.M, 3) + ' kg';
+    $('in-N').value = NCOIL; $('out-N').textContent = NCOIL + ' 巻き';
+    $('spec-N').textContent = NCOIL; $('spec-w').textContent = fmt(W * 1000, 2) + ' mm';
+    $('spec-A').textContent = fmt(P.A * 100, 1) + ' cm';
+    $('spec-L').textContent = fmt(P.L * 100, 0) + ' cm';
+    const box = $('modes'); box.innerHTML = '';
+    for (let n = 1; n <= 6; n++) {
+      const fn = D.fn(n); if (fn > fm) break;
+      const b = document.createElement('button');
+      b.className = 'mode' + (Math.abs(fn - P.f) < 0.0026 ? ' on' : '');
+      b.textContent = `n=${n}  ${fmt(fn, 3)} Hz`;
+      b.addEventListener('click', () => { P.f = fn; changed(false); minGap = D.a; });
+      box.appendChild(b);
+    }
+  }
+
+  function changed(needReset) {
+    derive(); if (needReset) reset();
+    computeTheory(); syncInputs(); minGap = needReset ? D.a : minGap;
+  }
+
+  const bind = (id, fn, needReset = false) => $(id).addEventListener('input', e => { fn(parseFloat(e.target.value)); changed(needReset); if (!needReset) minGap = D.a; });
+  bind('in-f', v => P.f = v);
+  bind('in-A', v => { P.A = v / 100; if (P.l < P.A * 1.2) P.l = P.A * 1.2; });
+  bind('in-l', v => { P.l = Math.max(v / 100, P.A * 1.2); });
+  bind('in-G', v => P.G = v);
+  bind('in-L', v => P.L = v / 100, true);
+  bind('in-K', v => P.K = v);
+  bind('in-M', v => P.M = v);
+  bind('in-N', v => { NCOIL = Math.round(v); NG = NCOIL - 1; W = L0 / NCOIL; }, true);
+  $('sel-speed').addEventListener('change', e => P.speed = parseFloat(e.target.value));
+  $('btn-play').addEventListener('click', () => { running = !running; $('btn-play').textContent = running ? '一時停止' : '再生'; });
+  $('btn-reset').addEventListener('click', () => { reset(); });
+
+  // ---------- ループ ----------
+  let last = performance.now(), lagging = false;
+  function frame(now) {
+    const dtReal = Math.min(0.05, (now - last) / 1000); last = now;
+    if (running) {
+      const target = dtReal * P.speed;
+      let n = Math.ceil(target / D.dtMax);
+      const cap = 6000; lagging = n > cap; n = Math.min(n, cap);
+      const hh = Math.min(D.dtMax, target / n);
+      for (let i = 0; i < n; i++) step(hh);
+    }
+    const C = css();
+    drawSim(C); drawU(C); drawRes(C);
+    updateReadouts();
+    requestAnimationFrame(frame);
+  }
+
+  derive();
+  P.f = 2.0;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { running = false; $('btn-play').textContent = '再生'; }
+  reset(); changed(false);
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
