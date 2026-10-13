@@ -113,7 +113,7 @@ mjx-container { color: var(--ink); }
     <h1>スリンキー定常波シミュレーター</h1>
     <p>一端を壁に固定し、もう一端をクランクで振動させたスリンキー（金属製の Original Slinky を想定）の縦波。各巻きを質点、巻きの間をバネとして運動方程式を数値的に解き、コイル同士の接触も含めています。</p>
     <div class="spec">
-      <span>自然長 <b>5.40 cm（2.125″）</b></span><span>質量 <b id="spec-M">0.172 kg</b></span><span>巻数 <b id="spec-N">98</b></span><span>1巻きの厚み <b id="spec-w">0.68 mm</b></span><span>クランクの振幅 <b id="spec-A">5.0 cm</b></span><span>連接棒 <b id="spec-l">20 cm</b></span><span>伸ばした長さ <b id="spec-L">100 cm</b></span>
+      <span>自然長 <b>5.5 cm</b></span><span>質量 <b id="spec-M">0.177 kg</b></span><span>巻数 <b id="spec-N">98</b></span><span>1巻きの厚み <b id="spec-w">0.68 mm</b></span><span>クランクの振幅 <b id="spec-A">5.0 cm</b></span><span>連接棒 <b id="spec-l">20 cm</b></span><span>伸ばした長さ <b id="spec-L">100 cm</b></span>
     </div>
   </header>
 
@@ -149,7 +149,7 @@ mjx-container { color: var(--ink); }
       <div class="row"><label for="in-l">連接棒 \(l\)</label><input id="in-l" type="range" min="6" max="60" step="0.5"><output id="out-l"></output></div>
       <div class="row"><label for="in-G">減衰率 \(\Gamma\)</label><input id="in-G" type="range" min="0" max="3" step="0.01"><output id="out-G"></output></div>
       <div class="row"><label for="in-L">長さ \(L\)</label><input id="in-L" type="range" min="40" max="120" step="1"><output id="out-L"></output></div>
-      <div class="row"><label for="in-K">バネ定数 \(K\)</label><input id="in-K" type="range" min="0.2" max="5" step="0.05"><output id="out-K"></output></div>
+      <div class="row"><label for="in-K">バネ定数 \(K\)</label><input id="in-K" type="range" min="0.1" max="3" step="0.01"><output id="out-K"></output></div>
       <div class="row"><label for="in-M">質量 \(M\)</label><input id="in-M" type="range" min="0.05" max="0.5" step="0.001"><output id="out-M"></output></div>
       <div class="row"><label for="in-N">巻数 \(N\)</label><input id="in-N" type="range" min="30" max="120" step="1"><output id="out-N"></output></div>
       <p class="note">各パラメータの初期値と根拠は、下の表にまとめています。\(L\) や \(N\) を変えると、はじめから計算し直します。</p>
@@ -180,10 +180,10 @@ mjx-container { color: var(--ink); }
     <table>
       <thead><tr><th>パラメータ</th><th>初期値</th><th>根拠</th><th>実測のしかた</th></tr></thead>
       <tbody>
-        <tr><td>自然長 \(L_0\)</td><td class="num">5.40 cm</td><td><span class="src fixed">商品表示</span> 2.125″（固定）</td><td>—</td></tr>
-        <tr><td>質量 \(M\)</td><td class="num">0.172 kg</td><td><span class="src spec">商品表示</span> 0.38 lb（梱包を含む可能性あり）</td><td>本体だけをはかりで量る</td></tr>
+        <tr><td>自然長 \(L_0\)</td><td class="num">5.5 cm</td><td><span class="src fixed">実測</span> 水平に置いた長さ 55 mm（固定）</td><td>—</td></tr>
+        <tr><td>質量 \(M\)</td><td class="num">0.177 kg</td><td><span class="src fixed">実測</span> 177.18 g</td><td>—</td></tr>
         <tr><td>巻数 \(N\)</td><td class="num">98</td><td><span class="src est">推定</span> 商品写真から約100巻き、Wikipedia では98巻き</td><td>10巻きごとに印を付けて数える</td></tr>
-        <tr><td>バネ定数 \(K\)</td><td class="num">0.84 N/m</td><td><span class="src tbd">仮定</span> 金属製スリンキーの典型値（Cross &amp; Wheatland 2012）</td><td>水平に置いて長さ \(L\) まで引き、ばねばかりで力 \(F\) を測る。\(K = F/(L - L_0)\)</td></tr>
+        <tr><td>バネ定数 \(K\)</td><td class="num">0.43 N/m</td><td><span class="src fixed">実測</span> \(L = 1.0\ \mathrm{m}\) で縦波パルスの片道時間 \(t_1 = 0.645\ \mathrm{s}\)、\(K = M/t_1^2\)</td><td>長さを変えて \(t_1\) が変わらないことも確かめる</td></tr>
         <tr><td>伸ばした長さ \(L\)</td><td class="num">1.00 m</td><td><span class="src fixed">実験条件</span></td><td>—</td></tr>
         <tr><td>クランク半径 \(A\)</td><td class="num">3.0 cm</td><td><span class="src est">推定</span> クランクの商品写真から 2.5〜3.5 cm</td><td>金属棒が往復する幅の半分</td></tr>
         <tr><td>連接棒 \(l\)</td><td class="num">12.5 cm</td><td><span class="src est">推定</span> クランクの商品写真から 12〜13 cm</td><td>連接棒の両端のピンの間隔</td></tr>
@@ -199,7 +199,7 @@ mjx-container { color: var(--ink); }
     <h2>モデル</h2>
     <p>巻き \(j\)（\(j = 0, 1, \dots, N-1\)）を質量 \(m = M/N\) の質点、隣り合う巻きの間をバネ定数 \(\kappa = (N-1)K\) のバネとします。巻き \(0\) はクランクで動かし、巻き \(N-1\) は壁に固定します。</p>
     <div class="eq">\[ m\,\ddot u_j = \kappa\,(u_{j+1} - 2u_j + u_{j-1}) - m\Gamma\,\dot u_j + (\text{接触力}) \]</div>
-    <p>隣り合う巻きの中心間の距離が1巻きの厚み \(L_0/N\)（\(L_0 = 5.40\ \mathrm{cm}\) は自然長＝コイルが密着した長さ）より小さくなると、強いバネで押し返す接触力がはたらきます。クランクは半径 \(A\) の円板に長さ \(l\) の連接棒をつなぎ、レール上のスライダーを往復させる機構です。巻き \(0\) の変位は</p>
+    <p>隣り合う巻きの中心間の距離が1巻きの厚み \(L_0/N\)（\(L_0 = 5.5\ \mathrm{cm}\) は自然長＝コイルが密着した長さ）より小さくなると、強いバネで押し返す接触力がはたらきます。クランクは半径 \(A\) の円板に長さ \(l\) の連接棒をつなぎ、レール上のスライダーを往復させる機構です。巻き \(0\) の変位は</p>
     <div class="eq">\[ u_0 = A\cos\theta + \sqrt{l^2 - A^2\sin^2\theta} - l \simeq A\cos\theta - \frac{A^2}{4l}\,(1 - \cos 2\theta), \qquad \theta = 2\pi f t \]</div>
     <p>で、単振動に振動数 \(2f\) の成分（振幅 \(A^2/4l\)）が混ざります。\(2f\) が共鳴振動数に近いと、この成分でも定常波が立ちます。重力と摩擦は、減衰率 \(\Gamma\) にまとめています。</p>
     <div class="eq">\[ f_n = \frac{1}{\pi}\sqrt{\frac{\kappa}{m}}\,\sin\frac{n\pi}{2(N-1)} \simeq \frac{n}{2}\sqrt{\frac{K}{M}}, \qquad \frac{B}{A} \simeq \frac{2Q}{n\pi},\quad Q = \frac{2\pi f_n}{\Gamma} \]</div>
@@ -211,11 +211,11 @@ mjx-container { color: var(--ink); }
 (() => {
   // ---------- 固定パラメータ ----------
   let NCOIL = 98, NG = NCOIL - 1;            // 巻数, すき間の数
-  const L0 = 0.053975;                        // 自然長 = 密着長 2.125" [m]
+  const L0 = 0.055;                           // 自然長 = 密着長（実測 55 mm）[m]
   let W = L0 / NCOIL;                         // 1巻きの厚み（接触する中心間距離）[m]
   const KC_RATIO = 100;                       // 接触バネの硬さ / κ
 
-  const P = { f: 2.0, A: 0.03, G: 0.3, L: 1.0, K: 0.84, M: 0.172, l: 0.125, speed: 1 };
+  const P = { f: 2.0, A: 0.03, G: 0.3, L: 1.0, K: 0.426, M: 0.17718, l: 0.125, speed: 1 };
   let D = {};                                 // 派生量
   let x = new Float64Array(NCOIL), v = new Float64Array(NCOIL), env = new Float64Array(NCOIL);
   let contact = new Uint8Array(NG);
